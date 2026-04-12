@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 @RequiredArgsConstructor
 public class TransferService {
 
-    // LOGGER (fica sempre logo após a declaração da classe)
     private static final Logger log =
             LoggerFactory.getLogger(TransferService.class);
 
@@ -26,93 +25,90 @@ public class TransferService {
     @Transactional
     public void transfer(TransferRequest request) {
 
-        // LOG 1 — início da operação
-        log.info("Transferência iniciada | from={} to={} amount={} idempotencyKey={}",
+        log.info("TRANSFER_START | from={} to={} amount={} idempotencyKey={}",
                 request.fromAccount(),
                 request.toAccount(),
                 request.amount(),
                 request.idempotencyKey());
 
-        // 1. Verificar idempotência
-        if (request.idempotencyKey() != null) {
+        validateIdempotency(request);
 
-            transactionRepository
-                    .findByIdempotencyKey(request.idempotencyKey())
-                    .ifPresent(t -> {
-
-                        log.warn("Tentativa de duplicação detectada | idempotencyKey={}",
-                                request.idempotencyKey());
-
-                        throw new RuntimeException("Transferência já processada");
-                    });
-        }
-
-        // 2. Buscar contas
-        Account from = accountRepository
-                .findByAccountNumber(request.fromAccount())
-                .orElseThrow(() -> {
-
-                    log.error("Conta origem não encontrada | account={}",
-                            request.fromAccount());
-
-                    return new RuntimeException("Conta origem não encontrada");
-                });
-
-        Account to = accountRepository
-                .findByAccountNumber(request.toAccount())
-                .orElseThrow(() -> {
-
-                    log.error("Conta destino não encontrada | account={}",
-                            request.toAccount());
-
-                    return new RuntimeException("Conta destino não encontrada");
-                });
+        Account from = getAccountOrThrow(request.fromAccount(), "origem");
+        Account to = getAccountOrThrow(request.toAccount(), "destino");
 
         BigDecimal amount = request.amount();
 
-        // 3. Validar saldo
-        if (from.getBalance().compareTo(amount) < 0) {
+        validateBalance(from, amount);
 
-            log.warn("Saldo insuficiente | account={} balance={} attemptedAmount={}",
+        executeTransfer(from, to, amount);
+
+        saveTransactions(from, to, amount, request.idempotencyKey());
+
+        log.info("TRANSFER_SUCCESS | from={} to={} amount={}",
+                request.fromAccount(),
+                request.toAccount(),
+                amount);
+    }
+
+    private void validateIdempotency(TransferRequest request) {
+        if (request.idempotencyKey() != null) {
+            transactionRepository
+                    .findByIdempotencyKey(request.idempotencyKey())
+                    .ifPresent(t -> {
+                        log.warn("TRANSFER_DUPLICATE | idempotencyKey={}",
+                                request.idempotencyKey());
+                        throw new RuntimeException("Transferência já processada");
+                    });
+        }
+    }
+
+    private Account getAccountOrThrow(String accountNumber, String type) {
+        return accountRepository
+                .findByAccountNumber(accountNumber)
+                .orElseThrow(() -> {
+                    log.error("ACCOUNT_NOT_FOUND | type={} account={}",
+                            type, accountNumber);
+                    return new RuntimeException("Conta " + type + " não encontrada");
+                });
+    }
+
+    private void validateBalance(Account from, BigDecimal amount) {
+        if (from.getBalance().compareTo(amount) < 0) {
+            log.warn("INSUFFICIENT_BALANCE | account={} balance={} attempted={}",
                     from.getAccountNumber(),
                     from.getBalance(),
                     amount);
-
             throw new RuntimeException("Saldo insuficiente");
         }
+    }
 
-        // 4. Atualizar saldos
+    private void executeTransfer(Account from, Account to, BigDecimal amount) {
         from.setBalance(from.getBalance().subtract(amount));
         to.setBalance(to.getBalance().add(amount));
 
         accountRepository.save(from);
         accountRepository.save(to);
+    }
 
-        // 5. Registrar débito
+    private void saveTransactions(Account from, Account to, BigDecimal amount, String idempotencyKey) {
+
         Transaction debit = Transaction.builder()
                 .account(from)
                 .amount(amount)
                 .transactionType(TransactionType.DEBIT)
                 .description("Transferência enviada")
-                .idempotencyKey(request.idempotencyKey())
+                .idempotencyKey(idempotencyKey)
                 .build();
 
-        // 6. Registrar crédito
         Transaction credit = Transaction.builder()
                 .account(to)
                 .amount(amount)
                 .transactionType(TransactionType.CREDIT)
                 .description("Transferência recebida")
-                .idempotencyKey(request.idempotencyKey())
+                .idempotencyKey(idempotencyKey)
                 .build();
 
         transactionRepository.save(debit);
         transactionRepository.save(credit);
-
-        // LOG FINAL — operação concluída
-        log.info("Transferência concluída | from={} to={} amount={}",
-                request.fromAccount(),
-                request.toAccount(),
-                amount);
     }
 }
