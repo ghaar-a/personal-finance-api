@@ -1,0 +1,28 @@
+services:
+  # O Banco de Dados
+  db:
+    image: postgres:15-alpine
+    container_name: finance_db
+    restart: always
+    environment:
+      POSTGRES_DB: finances_db
+      POSTGRES_USER: dev_user
+      POSTGRES_PASSWORD: dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Ferramenta Visual para o Banco (Opcional, mas ajuda muito no início)
+  adminer:
+    image: adminer
+    container_name: finance_adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+
