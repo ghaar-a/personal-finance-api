@@ -8,6 +8,9 @@ import java.util.UUID;
 
 public interface AccountRepository extends JpaRepository<Account, UUID> {
 
-    Optional<Account> findByAccountNumber(String accountNumber);
+    //  VULNERÁVEL: busca sem validar dono
+    Optional<Account> findById(UUID id);
 
+    // SEGURO: valida dono da conta
+    Optional<Account> findByIdAndUserId(UUID id, UUID userId);
 }
