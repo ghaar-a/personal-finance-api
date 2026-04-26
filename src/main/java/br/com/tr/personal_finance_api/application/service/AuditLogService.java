@@ -61,4 +61,22 @@ public class AuditLogService {
 
         auditLogRepository.save(auditLog);
     }
+
+    /**
+     * ✅ NOVO MÉTODO — seguindo o padrão atual da entidade
+     */
+    public void logCsrfAttempt(String ip, String path, String method) {
+        log.warn("SECURITY_EVENT csrf_attempt ip={} path={} method={}", ip, path, method);
+
+        AuditLog auditLog = AuditLog.builder()
+                .entityName("SECURITY")
+                .entityId(null)
+                .action("CSRF_ATTEMPT")
+                .oldValue(ip)
+                .newValue(path + " | " + method)
+                .changedAt(OffsetDateTime.now())
+                .build();
+
+        auditLogRepository.save(auditLog);
+    }
 }

