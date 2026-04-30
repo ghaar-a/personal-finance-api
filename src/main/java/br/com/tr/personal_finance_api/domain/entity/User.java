@@ -2,6 +2,7 @@ package br.com.tr.personal_finance_api.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -29,9 +30,11 @@ public class User {
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
+    @Column(name = "role", columnDefinition = "user_role")
     private Role role;
 
+    @Builder.Default
     @Column(nullable = false)
     private Boolean enabled = true;
 

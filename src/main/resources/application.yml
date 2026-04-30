@@ -21,10 +21,10 @@ spring:
 
   security:
     jwt:
-      secret: my-super-secret-key-my-super-secret-key
+      secret: test-secret-key
+      expiration: 3600000 # 1 hora
 
-  app:
-    security-mode: VULNERABLE
+
 
   logging:
     pattern:

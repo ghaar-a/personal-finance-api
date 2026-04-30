@@ -29,6 +29,7 @@ public class SecurityConfig {
         if ("VULNERABLE".equalsIgnoreCase(securityMode)) {
 
             http
+                    .csrf(csrf -> csrf.disable())
                     .sessionManagement(session ->
                             session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                     )
@@ -38,7 +39,10 @@ public class SecurityConfig {
                             .requestMatchers("/api/**").hasRole("USER")
                             .anyRequest().authenticated()
                     )
-                    .addFilterBefore(csrfAttackLoggingFilter, UsernamePasswordAuthenticationFilter.class);
+                    .addFilterBefore(
+                            csrfAttackLoggingFilter,
+                            UsernamePasswordAuthenticationFilter.class
+                    );
 
         } else {
 
@@ -53,8 +57,14 @@ public class SecurityConfig {
                             .requestMatchers("/api/**").hasRole("USER")
                             .anyRequest().authenticated()
                     )
-                    .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                    .addFilterBefore(csrfAttackLoggingFilter, UsernamePasswordAuthenticationFilter.class);
+                    .addFilterBefore(
+                            jwtAuthFilter,
+                            UsernamePasswordAuthenticationFilter.class
+                    )
+                    .addFilterBefore(
+                            csrfAttackLoggingFilter,
+                            UsernamePasswordAuthenticationFilter.class
+                    );
         }
 
         return http.build();
@@ -62,7 +72,8 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration config) throws Exception {
+            AuthenticationConfiguration config
+    ) throws Exception {
         return config.getAuthenticationManager();
     }
 }

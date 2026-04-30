@@ -15,7 +15,7 @@ import java.util.UUID;
 public class JwtService {
 
     //  Vem do application.yml (NUNCA hardcode em produção)
-    @Value("${security.jwt.secret}")
+    @Value("${spring.security.jwt.secret}")
     private String secret;
 
     private SecretKey key;

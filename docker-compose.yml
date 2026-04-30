@@ -1,5 +1,4 @@
 services:
-  # O Banco de Dados
   db:
     image: postgres:15-alpine
     container_name: finance_db
@@ -12,8 +11,27 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user -d finances_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # Ferramenta Visual para o Banco (Opcional, mas ajuda muito no início)
+  api:
+    build: .
+    container_name: finance_api
+    restart: always
+    ports:
+      - "8081:8080" # API no 8081 para não bater com o Adminer
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/finances_db
+      SPRING_DATASOURCE_USERNAME: dev_user
+      SPRING_DATASOURCE_PASSWORD: dev_password
+      SPRING_FLYWAY_ENABLED: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+
   adminer:
     image: adminer
     container_name: finance_adminer
@@ -25,4 +43,3 @@ services:
 
 volumes:
   postgres_data:
-

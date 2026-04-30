@@ -1,8 +1,12 @@
 package br.com.tr.personal_finance_api.interfaces.controller;
 
 import br.com.tr.personal_finance_api.application.service.AuthService;
-import br.com.tr.personal_finance_api.interfaces.dto.*;
+import br.com.tr.personal_finance_api.interfaces.dto.AuthResponse;
+import br.com.tr.personal_finance_api.interfaces.dto.LoginRequest;
+import br.com.tr.personal_finance_api.interfaces.dto.RegisterRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -13,14 +17,19 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public AuthResponse register(@RequestBody RegisterRequest request) {
-
-        return authService.register(request);
+    public ResponseEntity<AuthResponse> register(@RequestBody RegisterRequest request) {
+        return ResponseEntity.ok(
+                authService.register(request)
+        );
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody LoginRequest request) {
-
-        return authService.login(request);
+    public ResponseEntity<AuthResponse> login(
+            @RequestBody LoginRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        return ResponseEntity.ok(
+                authService.login(request, httpServletRequest)
+        );
     }
 }
