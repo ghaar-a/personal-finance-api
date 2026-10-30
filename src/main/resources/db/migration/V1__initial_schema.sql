@@ -1,8 +1,7 @@
 -- Extensão moderna para UUID
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- ENUMS (tipagem forte)
-CREATE TYPE user_role AS ENUM ('ROLE_USER', 'ROLE_ADMIN');
+-- ENUMS (mantemos apenas os que não causam problema com Hibernate)
 CREATE TYPE account_status AS ENUM ('ACTIVE', 'BLOCKED', 'CLOSED');
 CREATE TYPE transaction_type_enum AS ENUM ('DEBIT','CREDIT','TRANSFER');
 
@@ -12,7 +11,11 @@ CREATE TABLE users (
                        full_name VARCHAR(100) NOT NULL,
                        email VARCHAR(150) UNIQUE NOT NULL,
                        password_hash VARCHAR(255) NOT NULL,
-                       role user_role DEFAULT 'ROLE_USER',
+
+    --  (remove ENUM nativo)
+                       role VARCHAR(20) NOT NULL DEFAULT 'ROLE_USER'
+                           CHECK (role IN ('ROLE_USER', 'ROLE_ADMIN')),
+
                        enabled BOOLEAN DEFAULT TRUE,
                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
@@ -25,7 +28,10 @@ CREATE TABLE accounts (
                           account_number VARCHAR(20) UNIQUE NOT NULL,
                           balance NUMERIC(19,2) DEFAULT 0.00,
                           currency VARCHAR(3) DEFAULT 'BRL',
+
+    -- mantém ENUM aqui (não dá problema)
                           status account_status DEFAULT 'ACTIVE',
+
                           created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
 
                           CONSTRAINT fk_account_user
@@ -42,7 +48,10 @@ CREATE TABLE transactions (
                               id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                               account_id UUID NOT NULL,
                               amount NUMERIC(19,2) NOT NULL,
+
+    -- mantém ENUM aqui também
                               transaction_type transaction_type_enum NOT NULL,
+
                               description VARCHAR(255),
                               idempotency_key VARCHAR(100),
                               created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -79,17 +88,12 @@ CREATE TABLE audit_logs (
 -- ÍNDICES PROFISSIONAIS
 CREATE INDEX idx_users_email ON users(email);
 
-CREATE INDEX idx_accounts_user
-    ON accounts(user_id);
+CREATE INDEX idx_accounts_user ON accounts(user_id);
 
-CREATE INDEX idx_transactions_account
-    ON transactions(account_id);
+CREATE INDEX idx_transactions_account ON transactions(account_id);
 
-CREATE INDEX idx_transactions_idempotency
-    ON transactions(idempotency_key);
+CREATE INDEX idx_transactions_idempotency ON transactions(idempotency_key);
 
-CREATE INDEX idx_login_attempts_email
-    ON login_attempts(email);
+CREATE INDEX idx_login_attempts_email ON login_attempts(email);
 
-CREATE INDEX idx_audit_entity
-    ON audit_logs(entity_name, entity_id);
+CREATE INDEX idx_audit_entity ON audit_logs(entity_name, entity_id);

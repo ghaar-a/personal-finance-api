@@ -1,33 +1,84 @@
+
 package br.com.tr.personal_finance_api.interfaces.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private String getCorrelationId() {
-        return MDC.get("correlationId");
+        String id = MDC.get("correlationId");
+        return id != null ? id : "no-id";
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiError> handleGenericException(
-            Exception ex,
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiError> handleBadCredentials(
+            BadCredentialsException ex,
             HttpServletRequest request
     ) {
-
         ApiError error = new ApiError(
-                ErrorCode.INTERNAL_ERROR.name(),
-                "Unexpected error occurred",
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                ErrorCode.UNAUTHORIZED.name(),
+                "Invalid email or password",
+                HttpStatus.UNAUTHORIZED.value(),
                 request.getRequestURI(),
                 getCorrelationId()
         );
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiError> handleUnauthorized(
+            UnauthorizedException ex,
+            HttpServletRequest request
+    ) {
+        ApiError error = new ApiError(
+                ErrorCode.UNAUTHORIZED.name(),
+                ex.getMessage(),
+                HttpStatus.UNAUTHORIZED.value(),
+                request.getRequestURI(),
+                getCorrelationId()
+        );
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ApiError> handleTooManyRequests(
+            TooManyRequestsException ex,
+            HttpServletRequest request
+    ) {
+        ApiError error = new ApiError(
+                ErrorCode.TOO_MANY_REQUESTS.name(),
+                ex.getMessage(),
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                request.getRequestURI(),
+                getCorrelationId()
+        );
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error);
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiError> handleResourceNotFound(
+            ResourceNotFoundException ex,
+            HttpServletRequest request
+    ) {
+        ApiError error = new ApiError(
+                ErrorCode.NOT_FOUND.name(),
+                ex.getMessage(),
+                HttpStatus.NOT_FOUND.value(),
+                request.getRequestURI(),
+                getCorrelationId()
+        );
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -35,7 +86,6 @@ public class GlobalExceptionHandler {
             IllegalArgumentException ex,
             HttpServletRequest request
     ) {
-
         ApiError error = new ApiError(
                 ErrorCode.BAD_REQUEST.name(),
                 ex.getMessage(),
@@ -52,7 +102,6 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request
     ) {
-
         ApiError error = new ApiError(
                 ErrorCode.FORBIDDEN.name(),
                 "Access denied",
@@ -64,20 +113,23 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
-    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
-    public ResponseEntity<ApiError> handleUnauthorized(
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiError> handleGenericException(
             Exception ex,
             HttpServletRequest request
     ) {
+        ex.printStackTrace();
 
         ApiError error = new ApiError(
-                ErrorCode.UNAUTHORIZED.name(),
-                "Authentication required",
-                HttpStatus.UNAUTHORIZED.value(),
+                ErrorCode.INTERNAL_ERROR.name(),
+                ex.getMessage() != null
+                        ? ex.getMessage()
+                        : "Unexpected error occurred",
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 request.getRequestURI(),
                 getCorrelationId()
         );
 
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 }

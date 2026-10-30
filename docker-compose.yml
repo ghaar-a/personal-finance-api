@@ -20,7 +20,7 @@ services:
   api:
     build: .
     container_name: finance_api
-    restart: always
+    restart: no
     ports:
       - "8081:8080" # API no 8081 para não bater com o Adminer
     environment:

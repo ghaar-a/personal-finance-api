@@ -14,31 +14,38 @@ import java.util.UUID;
 @Service
 public class JwtService {
 
-    //  Vem do application.yml (NUNCA hardcode em produção)
+    // ✔ Corrigido: nome da property consistente com BaseIntegrationTest
     @Value("${spring.security.jwt.secret}")
     private String secret;
 
     private SecretKey key;
 
-    //  Inicializa a chave uma única vez (evita recriar a cada chamada)
     @PostConstruct
     public void init() {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+
+        // PROTEÇÃO: evita erro silencioso
+        if (keyBytes.length < 32) {
+            throw new IllegalArgumentException(
+                    "JWT secret must be at least 32 characters (256 bits)"
+            );
+        }
+
+        this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    //  Geração do token
     public String generateToken(UUID userId, String email) {
 
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("email", email)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + 86400000)) // 24h
+                .expiration(new Date(System.currentTimeMillis() + 86400000))
                 .signWith(key)
                 .compact();
     }
 
-    //  Extração do userId do token
     public UUID extractUserId(String token) {
 
         String subject = Jwts.parser()

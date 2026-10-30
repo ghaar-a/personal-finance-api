@@ -13,7 +13,7 @@ public class LoginAttemptService {
 
     private final LoginAttemptRepository repository;
 
-    private static final int MAX_ATTEMPTS = 5;
+    private static final int MAX_ATTEMPTS = 10;
     private static final int BLOCK_MINUTES = 15;
 
     public void recordSuccess(String email, String ip) {
@@ -25,11 +25,13 @@ public class LoginAttemptService {
     }
 
     public boolean isBlocked(String email) {
+
         OffsetDateTime window = OffsetDateTime.now().minusMinutes(BLOCK_MINUTES);
 
         long failures = repository.countByEmailAndSuccessFalseAndAttemptTimeAfter(email, window);
 
-        return failures >= MAX_ATTEMPTS;
+        // CORREÇÃO AQUI
+        return failures > MAX_ATTEMPTS;
     }
 
     private void saveAttempt(String email, boolean success, String ip) {

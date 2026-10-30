@@ -25,7 +25,6 @@ spring:
       expiration: 3600000 # 1 hora
 
 
-
   logging:
     pattern:
       console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId}] %-5level %logger - %msg%n"

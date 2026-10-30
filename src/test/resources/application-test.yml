@@ -1,2 +1,14 @@
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        type:
+          preferred_enum_type: pg_enum
+  datasource:
+    url: jdbc:postgresql://localhost:5432/testdb
+    username: test
+    password: test
+
 app:
-  security-mode: VULNERABLE
+  security-mode: SECURE

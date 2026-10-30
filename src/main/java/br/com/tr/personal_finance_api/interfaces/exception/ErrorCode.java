@@ -8,5 +8,6 @@ public enum ErrorCode {
     UNAUTHORIZED,
     FORBIDDEN,
     TOO_MANY_REQUESTS,
-    BAD_REQUEST
+    BAD_REQUEST,
+    NOT_FOUND
 }

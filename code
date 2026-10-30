@@ -1,0 +1,54 @@
+package br.com.tr.personal_finance_api.integration;
+
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+
+@Testcontainers
+@ActiveProfiles("test")
+@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+public abstract class BaseIntegrationTest {
+
+    @Container
+    public static final PostgreSQLContainer<?> postgres =
+            new PostgreSQLContainer<>("postgres:15")
+                    .withDatabaseName("testdb")
+                    .withUsername("test")
+                    .withPassword("test");
+
+    // ✅ GARANTE QUE O CONTAINER SUBA ANTES DO SPRING
+    static {
+        postgres.start();
+    }
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+
+        // ✅ ESSENCIAL
+        registry.add("spring.datasource.driver-class-name",
+                () -> "org.postgresql.Driver");
+
+        // ✅ CRIA SCHEMA AUTOMATICAMENTE NOS TESTES
+        registry.add("spring.jpa.hibernate.ddl-auto",
+                () -> "create-drop");
+
+        registry.add("spring.jpa.show-sql",
+                () -> "false");
+
+        registry.add("spring.security.jwt.secret",
+                () -> "12345678901234567890123456789012");
+
+        registry.add("app.security-mode",
+                () -> "SECURE");
+    }
+}

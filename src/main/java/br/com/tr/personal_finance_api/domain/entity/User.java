@@ -30,8 +30,7 @@ public class User {
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
-    @Column(name = "role", columnDefinition = "user_role")
+    @Column(name = "role", nullable = false)
     private Role role;
 
     @Builder.Default

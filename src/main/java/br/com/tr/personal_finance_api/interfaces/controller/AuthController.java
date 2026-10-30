@@ -5,12 +5,13 @@ import br.com.tr.personal_finance_api.interfaces.dto.AuthResponse;
 import br.com.tr.personal_finance_api.interfaces.dto.LoginRequest;
 import br.com.tr.personal_finance_api.interfaces.dto.RegisterRequest;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
@@ -23,9 +24,10 @@ public class AuthController {
         );
     }
 
+
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(
-            @RequestBody LoginRequest request,
+            @RequestBody @Valid LoginRequest request,
             HttpServletRequest httpServletRequest
     ) {
         return ResponseEntity.ok(

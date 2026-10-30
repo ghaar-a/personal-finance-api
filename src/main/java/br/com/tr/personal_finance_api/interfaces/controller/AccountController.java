@@ -1,12 +1,17 @@
+
 package br.com.tr.personal_finance_api.interfaces.controller;
 
 import br.com.tr.personal_finance_api.application.service.AccountService;
 import br.com.tr.personal_finance_api.domain.entity.Account;
+import br.com.tr.personal_finance_api.interfaces.dto.AccountResponse;
 import br.com.tr.personal_finance_api.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
@@ -17,23 +22,24 @@ public class AccountController {
 
     private final AccountService accountService;
 
-    // Endpoint vulnerável
     @GetMapping("/vulnerable/{id}")
-    public Account getAccountVulnerable(@PathVariable UUID id) {
-        return accountService.getAccountVulnerable(id);
+    public AccountResponse getAccountVulnerable(@PathVariable UUID id) {
+        Account account = accountService.getAccountVulnerable(id);
+        return AccountResponse.from(account);
     }
 
-    // Endpoint seguro + auditoria
     @GetMapping("/secure/{id}")
-    public Account getAccountSecure(
+    public AccountResponse getAccountSecure(
             @PathVariable UUID id,
             @AuthenticationPrincipal CustomUserDetails userDetails,
             HttpServletRequest request
     ) {
-        return accountService.getAccountSecure(
+        Account account = accountService.getAccountSecure(
                 id,
                 userDetails.getUserId(),
                 request
         );
+
+        return AccountResponse.from(account);
     }
 }
