@@ -1,3 +1,4 @@
+
 package br.com.tr.personal_finance_api.security;
 
 import io.jsonwebtoken.Jwts;
@@ -14,21 +15,33 @@ import java.util.UUID;
 @Service
 public class JwtService {
 
-    // ✔ Corrigido: nome da property consistente com BaseIntegrationTest
     @Value("${spring.security.jwt.secret}")
     private String secret;
+
+    @Value("${spring.security.jwt.expiration:3600000}")
+    private long expiration;
 
     private SecretKey key;
 
     @PostConstruct
     public void init() {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException(
+                    "JWT secret must not be null or blank"
+            );
+        }
 
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
 
-        // PROTEÇÃO: evita erro silencioso
         if (keyBytes.length < 32) {
             throw new IllegalArgumentException(
-                    "JWT secret must be at least 32 characters (256 bits)"
+                    "JWT secret must contain at least 32 bytes (256 bits)"
+            );
+        }
+
+        if (expiration <= 0) {
+            throw new IllegalArgumentException(
+                    "JWT expiration must be greater than zero"
             );
         }
 
@@ -36,18 +49,18 @@ public class JwtService {
     }
 
     public String generateToken(UUID userId, String email) {
+        long now = System.currentTimeMillis();
 
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("email", email)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + 86400000))
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + expiration))
                 .signWith(key)
                 .compact();
     }
 
     public UUID extractUserId(String token) {
-
         String subject = Jwts.parser()
                 .verifyWith(key)
                 .build()

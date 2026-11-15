@@ -9,6 +9,10 @@ spring:
     url: jdbc:postgresql://localhost:5432/testdb
     username: test
     password: test
+  security:
+    jwt:
+      secret: personal-finance-api-test-secret-256-bits
+      expiration: 3600000
 
 app:
   security-mode: SECURE

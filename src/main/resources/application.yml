@@ -1,3 +1,6 @@
+app:
+  security-mode: ${APP_SECURITY_MODE:SECURE}
+
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/finances_db
@@ -6,8 +9,9 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    open-in-view: false
     hibernate:
-      ddl-auto: validate # NUNCA use 'update' ou 'create' com Flyway
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
@@ -21,10 +25,9 @@ spring:
 
   security:
     jwt:
-      secret: test-secret-key
-      expiration: 3600000 # 1 hora
+      secret: ${JWT_SECRET}
+      expiration: ${JWT_EXPIRATION:3600000}
 
-
-  logging:
-    pattern:
-      console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId}] %-5level %logger - %msg%n"
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{correlationId}] %-5level %logger - %msg%n"
