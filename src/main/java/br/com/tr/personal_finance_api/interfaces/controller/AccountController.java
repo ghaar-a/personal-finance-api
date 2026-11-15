@@ -4,6 +4,7 @@ package br.com.tr.personal_finance_api.interfaces.controller;
 import br.com.tr.personal_finance_api.application.service.AccountService;
 import br.com.tr.personal_finance_api.domain.entity.Account;
 import br.com.tr.personal_finance_api.interfaces.dto.AccountResponse;
+import br.com.tr.personal_finance_api.interfaces.mapper.AccountMapper;
 import br.com.tr.personal_finance_api.security.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -21,11 +22,12 @@ import java.util.UUID;
 public class AccountController {
 
     private final AccountService accountService;
+    private final AccountMapper accountMapper;
 
     @GetMapping("/vulnerable/{id}")
     public AccountResponse getAccountVulnerable(@PathVariable UUID id) {
         Account account = accountService.getAccountVulnerable(id);
-        return AccountResponse.from(account);
+        return accountMapper.toResponse(account);
     }
 
     @GetMapping("/secure/{id}")
@@ -40,6 +42,6 @@ public class AccountController {
                 request
         );
 
-        return AccountResponse.from(account);
+        return accountMapper.toResponse(account);
     }
 }

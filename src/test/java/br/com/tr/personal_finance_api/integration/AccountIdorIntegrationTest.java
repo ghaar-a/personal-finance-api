@@ -1,3 +1,4 @@
+
 package br.com.tr.personal_finance_api.integration;
 
 import br.com.tr.personal_finance_api.domain.entity.Account;
@@ -23,6 +24,7 @@ import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -106,11 +108,21 @@ class AccountIdorIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Endpoint vulnerável demonstra o comportamento IDOR para estudos")
-    void vulnerableEndpointShouldExposeIdorScenario() throws Exception {
+    @DisplayName("Endpoint vulnerável demonstra IDOR sem expor campos internos da entidade")
+    void vulnerableEndpointShouldExposeIdorScenarioWithoutLeakingInternalFields() throws Exception {
 
         mockMvc.perform(get("/api/accounts/vulnerable/" + accountId)
                         .header("Authorization", "Bearer " + jwt))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(accountId.toString()))
+                .andExpect(jsonPath("$.accountNumber").value("ACC-100"))
+                .andExpect(jsonPath("$.balance").value(1000))
+                .andExpect(jsonPath("$.currency").value("BRL"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.user").doesNotExist())
+                .andExpect(jsonPath("$.createdAt").doesNotExist())
+                .andExpect(jsonPath("$.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.email").doesNotExist())
+                .andExpect(jsonPath("$.role").doesNotExist());
     }
 }

@@ -1,3 +1,4 @@
+
 plugins {
 	java
 	id("org.springframework.boot") version "3.3.5"
@@ -43,6 +44,9 @@ dependencies {
 	implementation("org.mapstruct:mapstruct:1.6.3")
 	annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
 
+	// Integração entre Lombok e MapStruct
+	annotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
+
 	// ===== RATE LIMIT =====
 	implementation("com.bucket4j:bucket4j-core:8.10.1")
 
@@ -50,7 +54,6 @@ dependencies {
 	implementation("io.jsonwebtoken:jjwt-api:0.12.5")
 	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")
 	runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.5")
-
 
 	// ===== DATABASE =====
 	runtimeOnly("org.postgresql:postgresql")
@@ -72,12 +75,10 @@ dependencies {
 
 	testCompileOnly("org.projectlombok:lombok")
 	testAnnotationProcessor("org.projectlombok:lombok")
-	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-}
+	testAnnotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
+	testAnnotationProcessor("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 
-// Configuração MapStruct para Spring
-tasks.withType<JavaCompile>().configureEach {
-	options.compilerArgs.add("-Amapstruct.defaultComponentModel=spring")
+	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {
