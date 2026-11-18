@@ -1,16 +1,27 @@
+
 package br.com.tr.personal_finance_api.application.service;
 
-import br.com.tr.personal_finance_api.domain.entity.*;
+import br.com.tr.personal_finance_api.application.command.TransferCommand;
+import br.com.tr.personal_finance_api.domain.entity.Account;
+import br.com.tr.personal_finance_api.domain.entity.AccountStatus;
+import br.com.tr.personal_finance_api.domain.entity.Transaction;
+import br.com.tr.personal_finance_api.domain.entity.TransactionType;
 import br.com.tr.personal_finance_api.domain.repository.AccountRepository;
 import br.com.tr.personal_finance_api.domain.repository.TransactionRepository;
-import br.com.tr.personal_finance_api.interfaces.dto.TransferRequest;
+import br.com.tr.personal_finance_api.domain.repository.TransferIdempotencyRepository;
+import br.com.tr.personal_finance_api.domain.repository.TransferIdempotencyRepository.ReservationResult;
+import br.com.tr.personal_finance_api.interfaces.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,91 +32,208 @@ public class TransferService {
 
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+    private final TransferIdempotencyRepository transferIdempotencyRepository;
 
     @Transactional
-    public void transfer(TransferRequest request) {
+    public void transfer(TransferCommand command) {
 
-        log.info("TRANSFER_START | from={} to={} amount={} idempotencyKey={}",
-                request.fromAccount(),
-                request.toAccount(),
-                request.amount(),
-                request.idempotencyKey());
+        validateCommand(command);
 
-        validateIdempotency(request);
+        if (command.fromAccount().equals(command.toAccount())) {
+            throw new IllegalArgumentException(
+                    "As contas de origem e destino devem ser diferentes."
+            );
+        }
 
-        Account from = getAccountOrThrow(request.fromAccount(), "origem");
-        Account to = getAccountOrThrow(request.toAccount(), "destino");
+        log.info(
+                "TRANSFER_START | from={} to={} amount={} userId={}",
+                command.fromAccount(),
+                command.toAccount(),
+                command.amount(),
+                command.userId()
+        );
 
-        BigDecimal amount = request.amount();
+        Map<String, Account> accounts = lockAccounts(command);
 
-        validateBalance(from, amount);
+        Account source = accounts.get(command.fromAccount());
+        Account destination = accounts.get(command.toAccount());
 
-        executeTransfer(from, to, amount);
+        validateOwnership(source, command);
+        validateCurrency(source, destination);
 
-        saveTransactions(from, to, amount, request.idempotencyKey());
+        if (command.idempotencyKey() != null) {
+            ReservationResult reservationResult =
+                    transferIdempotencyRepository.reserveOrValidate(
+                            command.userId(),
+                            command.idempotencyKey(),
+                            source.getId(),
+                            destination.getId(),
+                            command.amount(),
+                            source.getCurrency()
+                    );
 
-        log.info("TRANSFER_SUCCESS | from={} to={} amount={}",
-                request.fromAccount(),
-                request.toAccount(),
-                amount);
+            if (reservationResult == ReservationResult.PAYLOAD_CONFLICT) {
+                throw new IllegalArgumentException(
+                        "A chave de idempotência já foi utilizada com dados diferentes."
+                );
+            }
+
+            if (reservationResult == ReservationResult.IDEMPOTENT_REPLAY) {
+                log.info(
+                        "TRANSFER_IDEMPOTENT_REPLAY | userId={} idempotencyKey={}",
+                        command.userId(),
+                        command.idempotencyKey()
+                );
+                return;
+            }
+        }
+
+        validateAccountStatus(source, destination);
+        validateBalance(source, command.amount());
+
+        executeTransfer(source, destination, command.amount());
+        saveTransactions(source, destination, command.amount());
+
+        log.info(
+                "TRANSFER_SUCCESS | from={} to={} amount={} userId={}",
+                command.fromAccount(),
+                command.toAccount(),
+                command.amount(),
+                command.userId()
+        );
     }
 
-    private void validateIdempotency(TransferRequest request) {
-        if (request.idempotencyKey() != null) {
-            transactionRepository
-                    .findByIdempotencyKey(request.idempotencyKey())
-                    .ifPresent(t -> {
-                        log.warn("TRANSFER_DUPLICATE | idempotencyKey={}",
-                                request.idempotencyKey());
-                        throw new RuntimeException("Transferência já processada");
-                    });
+    private void validateCommand(TransferCommand command) {
+
+        if (command == null
+                || command.userId() == null
+                || command.fromAccount() == null
+                || command.fromAccount().isBlank()
+                || command.toAccount() == null
+                || command.toAccount().isBlank()
+                || command.amount() == null) {
+
+            throw new IllegalArgumentException(
+                    "Os dados da transferência são inválidos."
+            );
+        }
+
+        BigDecimal amount = command.amount();
+
+        if (amount.compareTo(BigDecimal.ZERO) <= 0
+                || amount.scale() > 2
+                || amount.precision() - amount.scale() > 17) {
+
+            throw new IllegalArgumentException(
+                    "O valor da transferência deve ser positivo e possuir no máximo duas casas decimais."
+            );
+        }
+
+        if (command.idempotencyKey() != null
+                && (command.idempotencyKey().isBlank()
+                || command.idempotencyKey().length() > 100)) {
+
+            throw new IllegalArgumentException(
+                    "A chave de idempotência deve possuir entre 1 e 100 caracteres."
+            );
         }
     }
 
-    private Account getAccountOrThrow(String accountNumber, String type) {
-        return accountRepository
-                .findByAccountNumber(accountNumber)
-                .orElseThrow(() -> {
-                    log.error("ACCOUNT_NOT_FOUND | type={} account={}",
-                            type, accountNumber);
-                    return new RuntimeException("Conta " + type + " não encontrada");
-                });
+    private Map<String, Account> lockAccounts(TransferCommand command) {
+
+        List<Account> lockedAccounts =
+                accountRepository.findAllByAccountNumbersForUpdate(
+                        List.of(command.fromAccount(), command.toAccount())
+                );
+
+        Map<String, Account> accountsByNumber = lockedAccounts.stream()
+                .collect(Collectors.toMap(
+                        Account::getAccountNumber,
+                        Function.identity()
+                ));
+
+        if (!accountsByNumber.containsKey(command.fromAccount())
+                || !accountsByNumber.containsKey(command.toAccount())) {
+
+            throw new ResourceNotFoundException(
+                    "Conta de origem ou destino não encontrada."
+            );
+        }
+
+        return accountsByNumber;
     }
 
-    private void validateBalance(Account from, BigDecimal amount) {
-        if (from.getBalance().compareTo(amount) < 0) {
-            log.warn("INSUFFICIENT_BALANCE | account={} balance={} attempted={}",
-                    from.getAccountNumber(),
-                    from.getBalance(),
-                    amount);
-            throw new RuntimeException("Saldo insuficiente");
+    private void validateOwnership(
+            Account source,
+            TransferCommand command
+    ) {
+        if (source.getUser() == null
+                || !source.getUser().getId().equals(command.userId())) {
+
+            throw new ResourceNotFoundException(
+                    "Conta de origem ou destino não encontrada."
+            );
         }
     }
 
-    private void executeTransfer(Account from, Account to, BigDecimal amount) {
-        from.setBalance(from.getBalance().subtract(amount));
-        to.setBalance(to.getBalance().add(amount));
+    private void validateCurrency(Account source, Account destination) {
 
-        accountRepository.save(from);
-        accountRepository.save(to);
+        if (!source.getCurrency().equals(destination.getCurrency())) {
+            throw new IllegalArgumentException(
+                    "As contas devem possuir a mesma moeda."
+            );
+        }
     }
 
-    private void saveTransactions(Account from, Account to, BigDecimal amount, String idempotencyKey) {
+    private void validateAccountStatus(
+            Account source,
+            Account destination
+    ) {
+        if (source.getStatus() != AccountStatus.ACTIVE
+                || destination.getStatus() != AccountStatus.ACTIVE) {
 
+            throw new IllegalArgumentException(
+                    "As duas contas devem estar ativas para realizar a transferência."
+            );
+        }
+    }
+
+    private void validateBalance(Account source, BigDecimal amount) {
+
+        if (source.getBalance().compareTo(amount) < 0) {
+            throw new IllegalArgumentException("Saldo insuficiente.");
+        }
+    }
+
+    private void executeTransfer(
+            Account source,
+            Account destination,
+            BigDecimal amount
+    ) {
+        source.setBalance(source.getBalance().subtract(amount));
+        destination.setBalance(destination.getBalance().add(amount));
+
+        // As entidades estão gerenciadas pelo contexto JPA.
+        // O dirty checking persiste as alterações no commit da transação.
+    }
+
+    private void saveTransactions(
+            Account source,
+            Account destination,
+            BigDecimal amount
+    ) {
         Transaction debit = Transaction.builder()
-                .account(from)
+                .account(source)
                 .amount(amount)
                 .transactionType(TransactionType.DEBIT)
                 .description("Transferência enviada")
-                .idempotencyKey(idempotencyKey)
                 .build();
 
         Transaction credit = Transaction.builder()
-                .account(to)
+                .account(destination)
                 .amount(amount)
                 .transactionType(TransactionType.CREDIT)
                 .description("Transferência recebida")
-                .idempotencyKey(idempotencyKey)
                 .build();
 
         transactionRepository.save(debit);

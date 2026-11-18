@@ -1,7 +1,10 @@
+
 package br.com.tr.personal_finance_api.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -30,6 +33,8 @@ public class Account {
     private String currency;
 
     @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(columnDefinition = "account_status")
     private AccountStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
