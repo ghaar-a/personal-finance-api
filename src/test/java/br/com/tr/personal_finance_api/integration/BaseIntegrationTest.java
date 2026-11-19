@@ -5,16 +5,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class BaseIntegrationTest {
 
-    static final PostgreSQLContainer<?> POSTGRES;
+    static final PostgreSQLContainer POSTGRES;
 
     static {
-        POSTGRES = new PostgreSQLContainer<>("postgres:15-alpine")
+        POSTGRES = new PostgreSQLContainer("postgres:15-alpine")
                 .withDatabaseName("testdb")
                 .withUsername("test")
                 .withPassword("test");

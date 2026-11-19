@@ -1,8 +1,8 @@
+
 package br.com.tr.personal_finance_api.security;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -33,10 +33,10 @@ public class RateLimitService {
 
         return Bucket.builder()
                 .addLimit(
-                        Bandwidth.classic(
-                                capacity,
-                                Refill.intervally(capacity, Duration.ofMinutes(1))
-                        )
+                        Bandwidth.builder()
+                                .capacity(capacity)
+                                .refillIntervally(capacity, Duration.ofMinutes(1))
+                                .build()
                 )
                 .build();
     }
