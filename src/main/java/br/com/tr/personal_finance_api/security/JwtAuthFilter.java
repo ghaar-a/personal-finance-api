@@ -7,8 +7,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -31,7 +31,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        // 1. IGNORA LOGIN/REGISTER
         if (path.startsWith("/api/auth")) {
             filterChain.doFilter(request, response);
             return;
@@ -39,7 +38,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String header = request.getHeader("Authorization");
 
-        // 2. SEM TOKEN → SEGUE
         if (header == null || !header.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -48,20 +46,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = header.substring(7);
 
         try {
-
-            // 3. EXTRAI USER ID
             UUID userId = jwtService.extractUserId(token);
 
-            // 4. BUSCA USUÁRIO (CORRIGIDO - NÃO LANÇA EXCEPTION)
             User user = userRepository.findById(userId).orElse(null);
 
-            if (user == null) {
+            if (user == null || !Boolean.TRUE.equals(user.getEnabled())) {
                 SecurityContextHolder.clearContext();
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            // 5. CRIA AUTH
             CustomUserDetails userDetails = new CustomUserDetails(user);
 
             UsernamePasswordAuthenticationToken auth =
@@ -74,7 +68,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(auth);
 
         } catch (Exception e) {
-            // 6. QUALQUER ERRO → NÃO QUEBRA API
             SecurityContextHolder.clearContext();
         }
 

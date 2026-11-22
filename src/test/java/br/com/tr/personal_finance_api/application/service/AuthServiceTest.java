@@ -1,4 +1,3 @@
-
 package br.com.tr.personal_finance_api.application.service;
 
 import br.com.tr.personal_finance_api.domain.entity.Role;
@@ -10,7 +9,6 @@ import br.com.tr.personal_finance_api.interfaces.dto.RegisterRequest;
 import br.com.tr.personal_finance_api.interfaces.exception.TooManyRequestsException;
 import br.com.tr.personal_finance_api.interfaces.exception.UnauthorizedException;
 import br.com.tr.personal_finance_api.security.JwtService;
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -135,6 +133,79 @@ class AuthServiceTest {
         verify(auditLogService, never()).logFailedLogin(anyString(), anyString());
         verify(auditLogService, never()).logBlockedLogin(anyString(), anyString());
         verify(jwtService).generateToken(userId, "user@example.com");
+    }
+
+    @Test
+    void shouldRejectLoginWhenAccountIsDisabled() {
+        user.setEnabled(false);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("192.0.2.30");
+
+        when(userRepository.findByEmail("user@example.com"))
+                .thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches("correct-password", "encoded-password"))
+                .thenReturn(true);
+
+        when(loginAttemptService.isBlocked("user@example.com"))
+                .thenReturn(false);
+
+        UnauthorizedException exception = assertThrows(
+                UnauthorizedException.class,
+                () -> authService.login(
+                        new LoginRequest("user@example.com", "correct-password"),
+                        request
+                )
+        );
+
+        assertEquals("Invalid credentials", exception.getMessage());
+
+        verify(loginAttemptService).recordFailure(
+                "user@example.com",
+                "192.0.2.30"
+        );
+        verify(auditLogService).logFailedLogin(
+                "user@example.com",
+                "192.0.2.30"
+        );
+        verify(loginAttemptService).isBlocked("user@example.com");
+
+        verify(loginAttemptService, never()).recordSuccess(anyString(), anyString());
+        verify(jwtService, never()).generateToken(any(), anyString());
+    }
+
+    @Test
+    void shouldRejectLoginWhenAccountEnabledStateIsNull() {
+        user.setEnabled(null);
+
+        when(userRepository.findByEmail("user@example.com"))
+                .thenReturn(Optional.of(user));
+
+        when(passwordEncoder.matches("correct-password", "encoded-password"))
+                .thenReturn(true);
+
+        when(loginAttemptService.isBlocked("user@example.com"))
+                .thenReturn(false);
+
+        assertThrows(
+                UnauthorizedException.class,
+                () -> authService.login(
+                        new LoginRequest("user@example.com", "correct-password"),
+                        null
+                )
+        );
+
+        verify(loginAttemptService).recordFailure(
+                "user@example.com",
+                "unknown"
+        );
+        verify(auditLogService).logFailedLogin(
+                "user@example.com",
+                "unknown"
+        );
+        verify(loginAttemptService, never()).recordSuccess(anyString(), anyString());
+        verify(jwtService, never()).generateToken(any(), anyString());
     }
 
     @Test

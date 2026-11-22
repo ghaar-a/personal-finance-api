@@ -16,12 +16,14 @@ public class CustomUserDetails implements UserDetails {
     private final String email;
     private final String password;
     private final String role;
+    private final boolean enabled;
 
     public CustomUserDetails(User user) {
         this.userId = user.getId();
         this.email = user.getEmail();
         this.password = user.getPasswordHash();
         this.role = user.getRole().name();
+        this.enabled = Boolean.TRUE.equals(user.getEnabled());
     }
 
     @Override
@@ -39,8 +41,23 @@ public class CustomUserDetails implements UserDetails {
         return this.email;
     }
 
-    @Override public boolean isAccountNonExpired() { return true; }
-    @Override public boolean isAccountNonLocked() { return true; }
-    @Override public boolean isCredentialsNonExpired() { return true; }
-    @Override public boolean isEnabled() { return true; }
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
 }

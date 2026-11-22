@@ -1,4 +1,3 @@
-
 package br.com.tr.personal_finance_api.security;
 
 import br.com.tr.personal_finance_api.domain.entity.Role;
@@ -88,14 +87,7 @@ class JwtAuthFilterTest {
         UUID userId = UUID.randomUUID();
         String token = "valid-token";
 
-        User user = User.builder()
-                .id(userId)
-                .fullName("Test User")
-                .email("user@example.com")
-                .passwordHash("encoded-password")
-                .role(Role.ROLE_USER)
-                .enabled(true)
-                .build();
+        User user = createUser(userId, true);
 
         when(jwtService.extractUserId(token)).thenReturn(userId);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
@@ -120,6 +112,7 @@ class JwtAuthFilterTest {
 
         assertEquals(userId, principal.getUserId());
         assertEquals("user@example.com", authentication.getName());
+        assertTrue(principal.isEnabled());
         assertTrue(authentication.getAuthorities().stream()
                 .anyMatch(authority ->
                         authority.getAuthority().equals(Role.ROLE_USER.name())
@@ -136,8 +129,64 @@ class JwtAuthFilterTest {
         UUID userId = UUID.randomUUID();
         String token = "valid-token";
 
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("previous-user", null)
+        );
+
         when(jwtService.extractUserId(token)).thenReturn(userId);
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        MockHttpServletRequest request = request("/api/accounts/secure/1");
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+
+        verify(jwtService).extractUserId(token);
+        verify(userRepository).findById(userId);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("Não deve autenticar usuário com conta desabilitada")
+    void shouldRejectAuthenticationWhenUserIsDisabled() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String token = "valid-token";
+
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("previous-user", null)
+        );
+
+        User user = createUser(userId, false);
+
+        when(jwtService.extractUserId(token)).thenReturn(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        MockHttpServletRequest request = request("/api/accounts/secure/1");
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+
+        verify(jwtService).extractUserId(token);
+        verify(userRepository).findById(userId);
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    @DisplayName("Não deve autenticar usuário quando enabled for null")
+    void shouldRejectAuthenticationWhenEnabledIsNull() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String token = "valid-token";
+
+        User user = createUser(userId, null);
+
+        when(jwtService.extractUserId(token)).thenReturn(userId);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         MockHttpServletRequest request = request("/api/accounts/secure/1");
         request.addHeader("Authorization", "Bearer " + token);
@@ -183,6 +232,10 @@ class JwtAuthFilterTest {
         UUID userId = UUID.randomUUID();
         String token = "valid-token";
 
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("previous-user", null)
+        );
+
         when(jwtService.extractUserId(token)).thenReturn(userId);
         when(userRepository.findById(userId))
                 .thenThrow(new IllegalStateException("Database unavailable"));
@@ -198,6 +251,17 @@ class JwtAuthFilterTest {
         verify(jwtService).extractUserId(token);
         verify(userRepository).findById(userId);
         verify(filterChain).doFilter(request, response);
+    }
+
+    private User createUser(UUID userId, Boolean enabled) {
+        return User.builder()
+                .id(userId)
+                .fullName("Test User")
+                .email("user@example.com")
+                .passwordHash("encoded-password")
+                .role(Role.ROLE_USER)
+                .enabled(enabled)
+                .build();
     }
 
     private MockHttpServletRequest request(String path) {

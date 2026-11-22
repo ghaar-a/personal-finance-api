@@ -47,35 +47,35 @@ public class AuthService {
         String password = request.password();
         String ip = getClientIp(httpRequest);
 
-        // 1. VALIDAÇÃO
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             throw new UnauthorizedException("Invalid credentials");
         }
 
-        // 2. BUSCA USUÁRIO
         User user = userRepository.findByEmail(email).orElse(null);
 
         if (user == null) {
             loginAttemptService.recordFailure(email, ip);
             auditLogService.logFailedLogin(email, ip);
 
-            checkBlock(email, ip); // ✅ VERIFICA DEPOIS
+            checkBlock(email, ip);
 
             throw new UnauthorizedException("Invalid credentials");
         }
 
-        // 3. VALIDA SENHA
-        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+        boolean passwordMatches =
+                passwordEncoder.matches(password, user.getPasswordHash());
 
+        boolean accountEnabled = Boolean.TRUE.equals(user.getEnabled());
+
+        if (!passwordMatches || !accountEnabled) {
             loginAttemptService.recordFailure(email, ip);
             auditLogService.logFailedLogin(email, ip);
 
-            checkBlock(email, ip); // ✅ VERIFICA DEPOIS
+            checkBlock(email, ip);
 
             throw new UnauthorizedException("Invalid credentials");
         }
 
-        // 4. SUCESSO
         loginAttemptService.recordSuccess(email, ip);
 
         String token = jwtService.generateToken(user.getId(), user.getEmail());
@@ -83,7 +83,6 @@ public class AuthService {
         return new AuthResponse(token);
     }
 
-    // ✅ NOVO MÉTODO (CRÍTICO PARA PASSAR NOS TESTES)
     private void checkBlock(String email, String ip) {
         if (loginAttemptService.isBlocked(email)) {
             auditLogService.logBlockedLogin(email, ip);
@@ -92,7 +91,9 @@ public class AuthService {
     }
 
     private String getClientIp(HttpServletRequest request) {
-        if (request == null) return "unknown";
+        if (request == null) {
+            return "unknown";
+        }
 
         String xfHeader = request.getHeader("X-Forwarded-For");
 
