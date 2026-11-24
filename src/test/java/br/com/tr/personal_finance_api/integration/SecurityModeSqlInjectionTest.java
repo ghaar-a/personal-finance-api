@@ -1,3 +1,4 @@
+
 package br.com.tr.personal_finance_api.integration;
 
 import br.com.tr.personal_finance_api.domain.entity.Account;
@@ -5,6 +6,7 @@ import br.com.tr.personal_finance_api.domain.entity.AccountStatus;
 import br.com.tr.personal_finance_api.domain.entity.Role;
 import br.com.tr.personal_finance_api.domain.entity.User;
 import br.com.tr.personal_finance_api.domain.repository.AccountRepository;
+import br.com.tr.personal_finance_api.domain.repository.TransactionRepository;
 import br.com.tr.personal_finance_api.domain.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -35,6 +38,12 @@ class SecurityModeSqlInjectionTest extends BaseIntegrationTest {
     AccountRepository accountRepository;
 
     @Autowired
+    TransactionRepository transactionRepository;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    @Autowired
     PasswordEncoder passwordEncoder;
 
     @DynamicPropertySource
@@ -45,6 +54,8 @@ class SecurityModeSqlInjectionTest extends BaseIntegrationTest {
     @BeforeEach
     void setup() {
 
+        jdbcTemplate.update("DELETE FROM transfer_idempotency");
+        transactionRepository.deleteAll();
         accountRepository.deleteAll();
         userRepository.deleteAll();
 

@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -28,7 +27,9 @@ public class SecurityConfig {
     private String securityMode;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
 
         http
                 .authorizeHttpRequests(auth -> {
@@ -55,7 +56,17 @@ public class SecurityConfig {
 
         if ("VULNERABLE".equalsIgnoreCase(securityMode)) {
             http
-                    .csrf(Customizer.withDefaults())
+                    .csrf(csrf ->
+                            csrf.ignoringRequestMatchers(request ->
+                                    "POST".equalsIgnoreCase(request.getMethod())
+                                            && "/api/csrf/transfer".equals(
+                                            request.getRequestURI()
+                                                    .substring(
+                                                            request.getContextPath().length()
+                                                    )
+                                    )
+                            )
+                    )
                     .sessionManagement(session ->
                             session.sessionCreationPolicy(
                                     SessionCreationPolicy.IF_REQUIRED
