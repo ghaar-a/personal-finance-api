@@ -1,4 +1,3 @@
-
 package br.com.tr.personal_finance_api.config;
 
 import br.com.tr.personal_finance_api.interfaces.exception.SecurityExceptionHandler;
@@ -30,13 +29,25 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         http
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/**").hasRole("USER")
-                        .anyRequest().authenticated()
-                )
+                .authorizeHttpRequests(auth -> {
+                    auth
+                            .requestMatchers("/api/auth/**").permitAll()
+                            .requestMatchers("/actuator/**").permitAll();
+
+                    if ("SECURE".equalsIgnoreCase(securityMode)) {
+                        auth
+                                .requestMatchers(
+                                        "/api/accounts/vulnerable/**",
+                                        "/api/csrf/**"
+                                ).denyAll();
+                    }
+
+                    auth
+                            .requestMatchers("/api/**").hasRole("USER")
+                            .anyRequest().authenticated();
+                })
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(securityExceptionHandler)
                         .accessDeniedHandler(securityExceptionHandler)
@@ -46,15 +57,26 @@ public class SecurityConfig {
             http
                     .csrf(Customizer.withDefaults())
                     .sessionManagement(session ->
-                            session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                            session.sessionCreationPolicy(
+                                    SessionCreationPolicy.IF_REQUIRED
+                            )
                     )
-                    .addFilterBefore(csrfAttackLoggingFilter, CsrfFilter.class);
+                    .addFilterBefore(
+                            jwtAuthFilter,
+                            UsernamePasswordAuthenticationFilter.class
+                    )
+                    .addFilterBefore(
+                            csrfAttackLoggingFilter,
+                            CsrfFilter.class
+                    );
 
         } else if ("SECURE".equalsIgnoreCase(securityMode)) {
             http
                     .csrf(csrf -> csrf.disable())
                     .sessionManagement(session ->
-                            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                            session.sessionCreationPolicy(
+                                    SessionCreationPolicy.STATELESS
+                            )
                     )
                     .addFilterBefore(
                             jwtAuthFilter,
