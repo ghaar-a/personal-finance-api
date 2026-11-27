@@ -30,6 +30,19 @@ class JwtServiceTest {
     }
 
     @Test
+    @DisplayName("Deve rejeitar segredo JWT nulo")
+    void shouldRejectNullSecret() {
+        JwtService jwtService = createService(null, 3600000L);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                jwtService::init
+        );
+
+        assertTrue(exception.getMessage().contains("null or blank"));
+    }
+
+    @Test
     @DisplayName("Deve rejeitar segredo JWT menor que 32 bytes")
     void shouldRejectSecretShorterThan32Bytes() {
         JwtService jwtService = createService("short-secret", 3600000L);

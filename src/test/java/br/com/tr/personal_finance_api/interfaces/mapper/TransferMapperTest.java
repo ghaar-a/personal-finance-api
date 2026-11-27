@@ -1,3 +1,4 @@
+
 package br.com.tr.personal_finance_api.interfaces.mapper;
 
 import br.com.tr.personal_finance_api.application.command.TransferCommand;
@@ -8,7 +9,7 @@ import org.mapstruct.factory.Mappers;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class TransferMapperTest {
 
@@ -32,6 +33,25 @@ class TransferMapperTest {
         assertEquals("ACC-200", command.toAccount());
         assertEquals(new BigDecimal("250.00"), command.amount());
         assertEquals("transfer-123", command.idempotencyKey());
+        assertEquals(userId, command.userId());
+    }
+
+    @Test
+    void shouldReturnNullWhenRequestAndUserIdAreNull() {
+        assertNull(mapper.toCommand(null, null));
+    }
+
+    @Test
+    void shouldMapAuthenticatedUserIdWhenRequestIsNull() {
+        UUID userId = UUID.randomUUID();
+
+        TransferCommand command = mapper.toCommand(null, userId);
+
+        assertNotNull(command);
+        assertNull(command.fromAccount());
+        assertNull(command.toAccount());
+        assertNull(command.amount());
+        assertNull(command.idempotencyKey());
         assertEquals(userId, command.userId());
     }
 }

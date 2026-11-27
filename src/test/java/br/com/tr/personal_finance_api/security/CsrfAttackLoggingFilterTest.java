@@ -35,17 +35,13 @@ class CsrfAttackLoggingFilterTest {
     void vulnerableModeShouldLogPostWithoutOriginAndReferer() throws Exception {
         ReflectionTestUtils.setField(filter, "securityMode", "VULNERABLE");
 
-        MockHttpServletRequest request = createPostRequest();
+        MockHttpServletRequest request = createRequest("POST");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = new MockFilterChain();
 
         filter.doFilter(request, response, chain);
 
-        verify(auditLogService).logCsrfAttempt(
-                "192.0.2.10",
-                "/api/csrf/transfer",
-                "POST"
-        );
+        verifyAudit("POST");
     }
 
     @Test
@@ -53,20 +49,65 @@ class CsrfAttackLoggingFilterTest {
     void vulnerableModeShouldNotLogPostWithOrigin() throws Exception {
         ReflectionTestUtils.setField(filter, "securityMode", "VULNERABLE");
 
-        MockHttpServletRequest request = createPostRequest();
+        MockHttpServletRequest request = createRequest("POST");
         request.addHeader("Origin", "https://trusted.example");
 
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        FilterChain chain = new MockFilterChain();
+        filter.doFilter(
+                request,
+                new MockHttpServletResponse(),
+                new MockFilterChain()
+        );
 
-        filter.doFilter(request, response, chain);
+        verifyNoAudit("POST");
+    }
 
-        verify(auditLogService, never())
-                .logCsrfAttempt(
-                        "192.0.2.10",
-                        "/api/csrf/transfer",
-                        "POST"
-                );
+    @Test
+    @DisplayName("Modo vulnerável não deve registrar POST com Referer")
+    void vulnerableModeShouldNotLogPostWithReferer() throws Exception {
+        ReflectionTestUtils.setField(filter, "securityMode", "VULNERABLE");
+
+        MockHttpServletRequest request = createRequest("POST");
+        request.addHeader("Referer", "https://trusted.example/form");
+
+        filter.doFilter(
+                request,
+                new MockHttpServletResponse(),
+                new MockFilterChain()
+        );
+
+        verifyNoAudit("POST");
+    }
+
+    @Test
+    @DisplayName("Modo vulnerável deve registrar PUT sem Origin e Referer")
+    void vulnerableModeShouldLogPutWithoutOriginAndReferer() throws Exception {
+        ReflectionTestUtils.setField(filter, "securityMode", "VULNERABLE");
+
+        MockHttpServletRequest request = createRequest("PUT");
+
+        filter.doFilter(
+                request,
+                new MockHttpServletResponse(),
+                new MockFilterChain()
+        );
+
+        verifyAudit("PUT");
+    }
+
+    @Test
+    @DisplayName("Modo vulnerável deve registrar DELETE sem Origin e Referer")
+    void vulnerableModeShouldLogDeleteWithoutOriginAndReferer() throws Exception {
+        ReflectionTestUtils.setField(filter, "securityMode", "VULNERABLE");
+
+        MockHttpServletRequest request = createRequest("DELETE");
+
+        filter.doFilter(
+                request,
+                new MockHttpServletResponse(),
+                new MockFilterChain()
+        );
+
+        verifyAudit("DELETE");
     }
 
     @Test
@@ -74,22 +115,16 @@ class CsrfAttackLoggingFilterTest {
     void getRequestShouldNotGenerateCsrfAudit() throws Exception {
         ReflectionTestUtils.setField(filter, "securityMode", "VULNERABLE");
 
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setMethod("GET");
+        MockHttpServletRequest request = createRequest("GET");
         request.setRequestURI("/api/accounts");
-        request.setRemoteAddr("192.0.2.10");
 
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        FilterChain chain = new MockFilterChain();
+        filter.doFilter(
+                request,
+                new MockHttpServletResponse(),
+                new MockFilterChain()
+        );
 
-        filter.doFilter(request, response, chain);
-
-        verify(auditLogService, never())
-                .logCsrfAttempt(
-                        "192.0.2.10",
-                        "/api/accounts",
-                        "GET"
-                );
+        verifyNoAudit("GET");
     }
 
     @Test
@@ -97,26 +132,38 @@ class CsrfAttackLoggingFilterTest {
     void secureModeShouldNotLogCsrfAttempt() throws Exception {
         ReflectionTestUtils.setField(filter, "securityMode", "SECURE");
 
-        MockHttpServletRequest request = createPostRequest();
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        FilterChain chain = new MockFilterChain();
+        MockHttpServletRequest request = createRequest("POST");
 
-        filter.doFilter(request, response, chain);
+        filter.doFilter(
+                request,
+                new MockHttpServletResponse(),
+                new MockFilterChain()
+        );
 
-        verify(auditLogService, never())
-                .logCsrfAttempt(
-                        "192.0.2.10",
-                        "/api/csrf/transfer",
-                        "POST"
-                );
+        verifyNoAudit("POST");
     }
 
-    private MockHttpServletRequest createPostRequest() {
+    private MockHttpServletRequest createRequest(String method) {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setMethod("POST");
+        request.setMethod(method);
         request.setRequestURI("/api/csrf/transfer");
         request.setRemoteAddr("192.0.2.10");
-
         return request;
+    }
+
+    private void verifyAudit(String method) {
+        verify(auditLogService).logCsrfAttempt(
+                "192.0.2.10",
+                "/api/csrf/transfer",
+                method
+        );
+    }
+
+    private void verifyNoAudit(String method) {
+        verify(auditLogService, never()).logCsrfAttempt(
+                "192.0.2.10",
+                "/api/csrf/transfer",
+                method
+        );
     }
 }

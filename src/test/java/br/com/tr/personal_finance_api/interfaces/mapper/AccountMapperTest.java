@@ -1,3 +1,4 @@
+
 package br.com.tr.personal_finance_api.interfaces.mapper;
 
 import br.com.tr.personal_finance_api.domain.entity.Account;
@@ -94,5 +95,10 @@ class AccountMapperTest {
         assertFalse(json.has("passwordHash"));
         assertFalse(json.has("email"));
         assertFalse(json.has("role"));
+    }
+
+    @Test
+    void shouldReturnNullWhenAccountIsNull() {
+        assertNull(accountMapper.toResponse(null));
     }
 }

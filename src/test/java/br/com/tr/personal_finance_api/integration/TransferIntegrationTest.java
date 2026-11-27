@@ -1,4 +1,3 @@
-
 package br.com.tr.personal_finance_api.integration;
 
 import br.com.tr.personal_finance_api.domain.entity.Account;
@@ -236,7 +235,7 @@ class TransferIntegrationTest extends BaseIntegrationTest {
                         post("/api/auth/login")
                                 .with(request -> {
                                     request.setRemoteAddr(
-                                            "192.0.2." + ThreadLocalRandom.current()
+                                            "198.51.100." + ThreadLocalRandom.current()
                                                     .nextInt(1, 255)
                                     );
                                     return request;

@@ -1,6 +1,7 @@
 
 plugins {
 	java
+	jacoco
 	id("org.springframework.boot") version "3.3.5"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -81,13 +82,26 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+jacoco {
+	toolVersion = "0.8.13"
+}
+
 tasks.withType<Test> {
 	useJUnitPlatform()
 
-	// para debugar o Docker
 	testLogging {
 		events("passed", "skipped", "failed")
 		showStackTraces = true
 		exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+	}
+
+	finalizedBy(tasks.named("jacocoTestReport"))
+}
+
+tasks.named<org.gradle.testing.jacoco.tasks.JacocoReport>("jacocoTestReport") {
+	reports {
+		xml.required.set(true)
+		html.required.set(true)
+		csv.required.set(false)
 	}
 }

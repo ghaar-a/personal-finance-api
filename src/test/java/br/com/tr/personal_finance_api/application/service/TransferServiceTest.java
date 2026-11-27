@@ -11,6 +11,7 @@ import br.com.tr.personal_finance_api.domain.repository.AccountRepository;
 import br.com.tr.personal_finance_api.domain.repository.TransactionRepository;
 import br.com.tr.personal_finance_api.domain.repository.TransferIdempotencyRepository;
 import br.com.tr.personal_finance_api.domain.repository.TransferIdempotencyRepository.ReservationResult;
+import br.com.tr.personal_finance_api.interfaces.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -157,7 +158,7 @@ class TransferServiceTest {
         );
 
         assertThrows(
-                RuntimeException.class,
+                ResourceNotFoundException.class,
                 () -> transferService.transfer(command)
         );
 
@@ -248,6 +249,177 @@ class TransferServiceTest {
     }
 
     @Test
+    void shouldRejectNullTransferCommand() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> transferService.transfer(null)
+        );
+
+        verifyNoInteractions(
+                accountRepository,
+                transactionRepository,
+                transferIdempotencyRepository
+        );
+    }
+
+    @Test
+    void shouldRejectTransferWhenAnyRequiredCommandFieldIsMissingOrBlank() {
+        TransferCommand missingUserId = command(
+                "ACC-100", "ACC-200",
+                new BigDecimal("100.00"), null, null
+        );
+
+        TransferCommand missingSource = command(
+                null, "ACC-200",
+                new BigDecimal("100.00"), null, userId
+        );
+
+        TransferCommand blankSource = command(
+                " ", "ACC-200",
+                new BigDecimal("100.00"), null, userId
+        );
+
+        TransferCommand missingDestination = command(
+                "ACC-100", null,
+                new BigDecimal("100.00"), null, userId
+        );
+
+        TransferCommand blankDestination = command(
+                "ACC-100", " ",
+                new BigDecimal("100.00"), null, userId
+        );
+
+        TransferCommand missingAmount = command(
+                "ACC-100", "ACC-200",
+                null, null, userId
+        );
+
+        assertThrows(IllegalArgumentException.class,
+                () -> transferService.transfer(missingUserId));
+        assertThrows(IllegalArgumentException.class,
+                () -> transferService.transfer(missingSource));
+        assertThrows(IllegalArgumentException.class,
+                () -> transferService.transfer(blankSource));
+        assertThrows(IllegalArgumentException.class,
+                () -> transferService.transfer(missingDestination));
+        assertThrows(IllegalArgumentException.class,
+                () -> transferService.transfer(blankDestination));
+        assertThrows(IllegalArgumentException.class,
+                () -> transferService.transfer(missingAmount));
+
+        verifyNoInteractions(
+                accountRepository,
+                transactionRepository,
+                transferIdempotencyRepository
+        );
+    }
+
+    @Test
+    void shouldRejectBlankIdempotencyKey() {
+        TransferCommand command = command(
+                "ACC-100", "ACC-200",
+                new BigDecimal("100.00"),
+                " ", userId
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> transferService.transfer(command)
+        );
+
+        verifyNoInteractions(
+                accountRepository,
+                transactionRepository,
+                transferIdempotencyRepository
+        );
+    }
+
+    @Test
+    void shouldRejectIdempotencyKeyLongerThanOneHundredCharacters() {
+        TransferCommand command = command(
+                "ACC-100", "ACC-200",
+                new BigDecimal("100.00"),
+                "a".repeat(101), userId
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> transferService.transfer(command)
+        );
+
+        verifyNoInteractions(
+                accountRepository,
+                transactionRepository,
+                transferIdempotencyRepository
+        );
+    }
+
+    @Test
+    void shouldRejectTransferWhenSourceAccountDoesNotExist() {
+        when(accountRepository.findAllByAccountNumbersForUpdate(
+                List.of("ACC-100", "ACC-200")
+        )).thenReturn(List.of(destinationAccount));
+
+        TransferCommand command = command(
+                "ACC-100", "ACC-200",
+                new BigDecimal("100.00"), null, userId
+        );
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> transferService.transfer(command)
+        );
+
+        verifyNoInteractions(
+                transferIdempotencyRepository,
+                transactionRepository
+        );
+    }
+
+    @Test
+    void shouldRejectTransferWhenDestinationAccountDoesNotExist() {
+        when(accountRepository.findAllByAccountNumbersForUpdate(
+                List.of("ACC-100", "ACC-200")
+        )).thenReturn(List.of(sourceAccount));
+
+        TransferCommand command = command(
+                "ACC-100", "ACC-200",
+                new BigDecimal("100.00"), null, userId
+        );
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> transferService.transfer(command)
+        );
+
+        verifyNoInteractions(
+                transferIdempotencyRepository,
+                transactionRepository
+        );
+    }
+
+    @Test
+    void shouldRejectTransferWhenSourceAccountHasNoOwner() {
+        sourceAccount.setUser(null);
+        stubLockedAccounts();
+
+        TransferCommand command = command(
+                "ACC-100", "ACC-200",
+                new BigDecimal("100.00"), null, userId
+        );
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> transferService.transfer(command)
+        );
+
+        verifyNoInteractions(
+                transferIdempotencyRepository,
+                transactionRepository
+        );
+    }
+
+    @Test
     void shouldRejectZeroOrNegativeAmounts() {
         TransferCommand zeroAmount = command(
                 "ACC-100", "ACC-200",
@@ -287,6 +459,27 @@ class TransferServiceTest {
 
         verify(accountRepository, never())
                 .findAllByAccountNumbersForUpdate(anyList());
+    }
+
+    @Test
+    void shouldRejectAmountWithMoreThanSeventeenIntegerDigits() {
+        TransferCommand command = command(
+                "ACC-100", "ACC-200",
+                new BigDecimal("100000000000000000.00"),
+                null,
+                userId
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> transferService.transfer(command)
+        );
+
+        verifyNoInteractions(
+                accountRepository,
+                transactionRepository,
+                transferIdempotencyRepository
+        );
     }
 
     private TransferCommand command(

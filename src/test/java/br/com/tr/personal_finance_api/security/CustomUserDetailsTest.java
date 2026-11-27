@@ -1,3 +1,4 @@
+
 package br.com.tr.personal_finance_api.security;
 
 import br.com.tr.personal_finance_api.domain.entity.Role;
@@ -29,6 +30,46 @@ class CustomUserDetailsTest {
         CustomUserDetails userDetails = new CustomUserDetails(createUser(null));
 
         assertFalse(userDetails.isEnabled());
+    }
+
+    @Test
+    void shouldExposeUserIdentityAndCredentials() {
+        User user = createUser(true);
+
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+
+        assertEquals(user.getId(), userDetails.getUserId());
+        assertEquals(user.getEmail(), userDetails.getUsername());
+        assertEquals(user.getEmail(), userDetails.getEmail());
+        assertEquals(user.getPasswordHash(), userDetails.getPassword());
+        assertEquals(Role.ROLE_USER.name(), userDetails.getRole());
+    }
+
+    @Test
+    void shouldExposeUserRoleAsGrantedAuthority() {
+        CustomUserDetails userDetails = new CustomUserDetails(createUser(true));
+
+        assertEquals(
+                1,
+                userDetails.getAuthorities().size()
+        );
+
+        assertTrue(
+                userDetails.getAuthorities()
+                        .stream()
+                        .anyMatch(authority ->
+                                authority.getAuthority().equals("ROLE_USER")
+                        )
+        );
+    }
+
+    @Test
+    void shouldReportAccountAndCredentialsAsNonExpiredAndNonLocked() {
+        CustomUserDetails userDetails = new CustomUserDetails(createUser(true));
+
+        assertTrue(userDetails.isAccountNonExpired());
+        assertTrue(userDetails.isAccountNonLocked());
+        assertTrue(userDetails.isCredentialsNonExpired());
     }
 
     private User createUser(Boolean enabled) {

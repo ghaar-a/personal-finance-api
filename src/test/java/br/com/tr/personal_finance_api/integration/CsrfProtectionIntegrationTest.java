@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -58,5 +59,16 @@ class CsrfProtectionIntegrationTest extends BaseIntegrationTest {
                                 "A requisição com token CSRF válido não deve ser bloqueada pelo CSRF"
                         )
                 );
+    }
+
+    @Test
+    @DisplayName("Exceção CSRF do endpoint demonstrativo não deve permitir PUT sem token")
+    void shouldRejectPutWithoutCsrfTokenOnDemoEndpoint() throws Exception {
+        mockMvc.perform(put("/api/csrf/transfer")
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("fromAccount", "SOURCE")
+                        .param("toAccount", "DESTINATION")
+                        .param("amount", "100.00"))
+                .andExpect(status().isForbidden());
     }
 }

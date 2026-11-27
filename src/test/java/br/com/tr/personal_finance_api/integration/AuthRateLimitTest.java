@@ -1,8 +1,8 @@
 package br.com.tr.personal_finance_api.integration;
 
-import br.com.tr.personal_finance_api.domain.repository.AccountRepository;
 import br.com.tr.personal_finance_api.domain.entity.Role;
 import br.com.tr.personal_finance_api.domain.entity.User;
+import br.com.tr.personal_finance_api.domain.repository.AccountRepository;
 import br.com.tr.personal_finance_api.domain.repository.LoginAttemptRepository;
 import br.com.tr.personal_finance_api.domain.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc
@@ -81,6 +82,8 @@ class AuthRateLimitTest extends BaseIntegrationTest {
                         })
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson))
-                .andExpect(status().isTooManyRequests());
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("X-Correlation-Id"))
+                .andExpect(header().exists("Content-Security-Policy"));
     }
 }
