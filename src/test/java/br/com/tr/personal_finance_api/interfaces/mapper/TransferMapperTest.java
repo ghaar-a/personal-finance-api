@@ -55,11 +55,3 @@ class TransferMapperTest {
         assertEquals(userId, command.userId());
     }
 }
-docker compose down -v
-export JWT_SECRET=$(openssl rand -base64 48)
-docker compose up -d --build
-sleep 40
-docker compose ps
-docker compose logs api | grep -iE "flyway|migrat|schema|validat|ERROR|Started|Caused" | tail -40
-curl -s -o /dev/null -w "health: %{http_code}\n" localhost:8081/actuator/health
-docker compose down
